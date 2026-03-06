@@ -6,8 +6,8 @@ def click_button(target: str) -> str:
     return f"Clicked {target}"
 
 @FunctionTool
-def type_text(target: str, text: str) -> str:
-    """Type text into an input field by its placeholder."""
+def type_text(target: str, text: str, enter: bool = False) -> str:
+    """Type text into an input field by its placeholder. Set enter to True to submit after typing."""
     return f"Typed into {target}"
 
 @FunctionTool

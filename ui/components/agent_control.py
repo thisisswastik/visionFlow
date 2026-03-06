@@ -3,6 +3,7 @@ import threading
 import time
 import os
 from dotenv import load_dotenv
+from streamlit_autorefresh import st_autorefresh
 
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -14,7 +15,7 @@ load_dotenv()
 # Global to hold the background thread purely to prevent GC
 _agent_thread = None
 
-def run_agent_in_background(url: str, goal: str):
+def run_agent_in_background(url: str, goal: str, headless: bool):
     import asyncio
     import sys
     
@@ -29,7 +30,7 @@ def run_agent_in_background(url: str, goal: str):
     try:
         agent = VisionADKAgent(
             api_key=os.getenv("GEMINI_API_KEY"),
-            headless=True # Always headless in UI
+            headless=headless
         )
         agent.run(url=url, goal=goal)
     except Exception as e:
@@ -45,6 +46,7 @@ def render():
         with col1:
             url = st.text_input("Target URL", placeholder="https://www.example.com")
             goal = st.text_input("Agent Goal", placeholder="Navigate to the contact page and extract the email.")
+            show_browser = st.checkbox("Show Browser Engine (Disable Headless)", value=True)
         with col2:
             st.write("")
             st.write("")
@@ -60,7 +62,7 @@ def render():
         st.session_state.current_live_session = "loading"
         
         global _agent_thread
-        _agent_thread = threading.Thread(target=run_agent_in_background, args=(url, goal), daemon=True)
+        _agent_thread = threading.Thread(target=run_agent_in_background, args=(url, goal, not show_browser), daemon=True)
         _agent_thread.start()
 
         # Wait briefly for session to be registered in Firestore
@@ -114,15 +116,13 @@ def render():
                     st.markdown(f"<small>Time: {step.get('timestamp', 'N/A')}</small>", unsafe_allow_html=True)
                     st.markdown("</div>", unsafe_allow_html=True)
             
-            # Auto-Refresh if not completed
-            # To actually auto-refresh streamit without a heavy loop, we use a button or st_autorefresh.
-            # Here we just offer a manual refresh to keep it simple and stable, or use a short sleep/rerun loop.
+            # Auto-Refresh to maintain the live stream
+            # The agent background thread creates Firestore steps; we ping to retrieve them.
+            # We don't want to refresh endlessly if it's over, but we assume the agent finishes quickly.
+            st_autorefresh(interval=2000, limit=200, key="agent_live_feed")
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("🔄 Refresh Live Feed"):
-                    st.rerun()
-            with col2:
                 if st.button("🛑 Stop Monitoring"):
                     st.session_state.current_live_session = None
                     st.rerun()

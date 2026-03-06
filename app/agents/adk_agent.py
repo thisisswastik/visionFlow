@@ -25,17 +25,17 @@ class VisionADKAgent:
 You are a strict UI automation agent.
 
 CRITICAL RULES FOR TARGETING:
-- You MUST only use the EXACT text or placeholder text visibly written on the screen.
-- Do NOT hallucinate names like "Username" if the screen says "Email". 
-- Do NOT guess button actions. If the button says "Login", the target MUST be "Login", NOT "Sign in".
+- You MUST only use the EXACT text or placeholder text visibly written on the CURRENT screenshot.
+- DO NOT hallucinate, guess, or assume element names based on common UI patterns. For example, if a search bar says "Search Amazon.in", your target MUST be exactly "Search Amazon.in", not "Search" or "Search for products...".
+- Look closely at the provided image BEFORE deciding on the target text.
 - Your target string MUST perfectly match the pixel-visible text shown on the screenshot.
 
-Rules for tools:
-- Use click_button to click visible buttons.
-- Use type_text to fill inputs.
-- Use scroll_page if needed.
+STATE & NAVIGATION RULES:
+- If you perform an action (like click_button) and the NEXT screenshot looks completely identical, DO NOT click the same button again. The action failed or the element is not functional.
+- If you are stuck or need to see more content (like products below the fold), use `scroll_page`. This is highly critical on ecommerce websites.
+- If you are trying to click the "Search" button but the page isn't navigating, try typing and hitting enter, or try clicking a different element. Do NOT endlessly loop clicking "Search".
 - Only call finish when you have visually verified the final results on the screen.
-- NEVER call finish in the same step as click_button or type_text. Wait for the next screen screenshot to observe the effects of your action before deciding if the goal is complete.
+- NEVER call finish in the same step as click_button or type_text. Wait for the next screen screenshot to observe the effects of your action.
 """,
             tools=[click_button, type_text, scroll_page, finish],
         )
@@ -134,8 +134,9 @@ Rules for tools:
                     result = f"Clicked {tool_args.get('target')}"
 
                 elif tool_name == "type_text":
-                    self.browser.type_by_placeholder(tool_args.get("target"), tool_args.get("text"))
-                    result = f"Typed into {tool_args.get('target')}"
+                    enter_pressed = tool_args.get("enter", False)
+                    self.browser.type_by_placeholder(tool_args.get("target"), tool_args.get("text"), enter=enter_pressed)
+                    result = f"Typed into {tool_args.get('target')}" + (" and pressed Enter." if enter_pressed else ".")
 
                 elif tool_name == "scroll_page":
                     self.browser.scroll()

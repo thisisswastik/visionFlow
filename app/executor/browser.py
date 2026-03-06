@@ -156,7 +156,7 @@ class BrowserExecutor:
                 pass
 
 
-    def type_by_placeholder(self, placeholder: str, value: str):
+    def type_by_placeholder(self, placeholder: str, value: str, enter: bool = False):
         """ Improve typing logic: wait, click, clear, type """
         def _type(element):
             try:
@@ -170,9 +170,13 @@ class BrowserExecutor:
             try:
                 element.fill("", timeout=3000, force=True) # clear existing text
                 element.fill(value, timeout=3000, force=True)
+                if enter:
+                    element.press("Enter")
             except Exception:
                 # JS fallback for text entry
                 element.evaluate(f"el => {{ el.value = '{value}'; el.dispatchEvent(new Event('input', {{ bubbles: true }})); el.dispatchEvent(new Event('change', {{ bubbles: true }})); }}")
+                if enter:
+                    element.evaluate("el => el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }))")
         
         self._interact_with_retry(_type, placeholder)
 

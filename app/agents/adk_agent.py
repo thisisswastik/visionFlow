@@ -43,6 +43,7 @@ STATE & NAVIGATION RULES:
 - NEVER call finish in the same step as click_button or type_text. Wait for the next screen screenshot to observe the effects of your action.
 - Use `extract_page_content` ONLY if you need to fetch the raw textual DOM dump of the current screen to read massive amounts of pricing or text data that is hard to see.
 - If you hit a Login screen or a prompt for a password / 2FA code, and you do not know the credentials, IMMEDIATELY call `ask_customer_for_input`. Wait for the user to provide the credentials. DO NOT guess credentials.
+- **INTERVENTION RESPONSES**: When `ask_customer_for_input` returns the user's string (e.g., "my_username, my_password"), you MUST extract those exact values and use them as the `text` argument in your subsequent `type_text` tool calls. NEVER type "dummy_username" or fake data.
 """,
             tools=[click_button, type_text, scroll_page, extract_page_content, ask_customer_for_input, finish],
         )

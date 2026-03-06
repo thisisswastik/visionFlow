@@ -1,6 +1,8 @@
 # Environment
 .env
 .env.*
+firestore_keys.json
+.env.*
 
 # Python
 venv/

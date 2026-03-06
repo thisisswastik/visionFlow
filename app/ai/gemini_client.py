@@ -4,6 +4,8 @@ from google import genai
 from PIL import Image
 from app.schemas import AgentResponse
 import re
+from app.telemetry.phoenix import tracer
+from openinference.semconv.trace import SpanAttributes, OpenInferenceSpanKindValues
 
 
 class GeminiClient:
@@ -35,9 +37,10 @@ Return STRICT JSON and ONLY JSON no marking such as :
     "goal_completed": false
 }}
 
-When referring to UI elements,
-use the exact visible text on the screen.
-Do not add extra words like "button".
+STRICT RULE TO FOLLOW:
+    When referring to UI elements,
+    use the exact visible text on the screen.
+    Do not add extra words like "button".
 
 If goal is completed:
 - set goal_completed = true
@@ -54,12 +57,19 @@ If the screenshot shows evidence that the task is complete
 set goal_completed to true and next_action to null.
 """
 
-        response = self.client.models.generate_content(
-            model=self.model_name,
-            contents=[prompt, image]
-        )
+        with tracer.start_as_current_span(name="GeminiClient.reason") as span:
+            span.set_attribute(SpanAttributes.OPENINFERENCE_SPAN_KIND, OpenInferenceSpanKindValues.LLM.value)
+            span.set_attribute(SpanAttributes.LLM_MODEL_NAME, self.model_name)
+            span.set_attribute(SpanAttributes.INPUT_VALUE, prompt)
 
-        raw_text = response.text.strip()
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=[prompt, image]
+            )
+
+            raw_text = response.text.strip()
+            span.set_attribute(SpanAttributes.OUTPUT_VALUE, raw_text)
+
         print("=======RAW LLM RESPONSE===============")
         print(raw_text)
         print("=======END LLM RESPONSE===============")

@@ -7,31 +7,38 @@ st.set_page_config(
     layout="wide",
 )
 
-# Custom CSS for modern styling
+# Custom CSS for modern dark styling
 st.markdown("""
     <style>
     .stApp {
-        background-color: #f7f9fc;
+        background-color: #0E1117;
+        color: #FAFAFA;
     }
     .main-header {
         font-family: 'Inter', sans-serif;
-        color: #1E3A8A;
+        color: #60A5FA;
         font-weight: 700;
+        margin-bottom: 20px;
     }
     .status-running {
-        color: #059669;
+        color: #34D399; /* Green */
         font-weight: bold;
     }
     .status-completed {
-        color: #2563EB;
+        color: #60A5FA; /* Blue */
         font-weight: bold;
     }
     .step-card {
-        background: white;
+        background-color: #1E293B;
+        color: #F8FAFC;
         padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         margin-bottom: 20px;
+        border: 1px solid #334155;
+    }
+    .step-card h3 {
+        color: #93C5FD;
     }
     </style>
 """, unsafe_allow_html=True)

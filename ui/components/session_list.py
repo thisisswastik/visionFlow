@@ -24,7 +24,12 @@ def render():
     
     for s in sessions:
         start_ts = s.get("start_time", 0)
-        dt_repr = datetime.fromtimestamp(start_ts).strftime('%Y-%m-%d %H:%M:%S') if start_ts else "Unknown"
+        if isinstance(start_ts, (int, float)):
+            dt_repr = datetime.fromtimestamp(start_ts).strftime('%Y-%m-%d %H:%M:%S') if start_ts else "Unknown"
+        elif hasattr(start_ts, 'strftime'):
+            dt_repr = start_ts.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            dt_repr = str(start_ts)
         
         status = s.get("status", "unknown")
         
@@ -47,7 +52,6 @@ def render():
     
     st.dataframe(
         df, 
-        use_container_width=True, 
         hide_index=True,
     )
 

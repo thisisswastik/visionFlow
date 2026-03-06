@@ -15,6 +15,17 @@ load_dotenv()
 _agent_thread = None
 
 def run_agent_in_background(url: str, goal: str):
+    import asyncio
+    import sys
+    
+    # Playwright requires the ProactorEventLoop on Windows to use subprocesses
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+        
+    # Set a new event loop for this specific background thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
     try:
         agent = VisionADKAgent(
             api_key=os.getenv("GEMINI_API_KEY"),
@@ -37,7 +48,7 @@ def render():
         with col2:
             st.write("")
             st.write("")
-            run_btn = st.button("🚀 Run Agent", use_container_width=True, type="primary")
+            run_btn = st.button("🚀 Run Agent", type="primary")
         st.markdown("</div>", unsafe_allow_html=True)
 
     # State tracking

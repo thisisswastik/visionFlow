@@ -1,0 +1,25 @@
+# Use the official Microsoft Playwright image as the base
+# This image comes with browsers and their OS dependencies pre-installed
+FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
+
+# Set the working directory
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install the Playwright Chromium browser binary
+RUN playwright install chromium
+
+# Copy the rest of the application code
+COPY . .
+
+# Set default command (can be overridden)
+CMD ["streamlit", "run", "ui/app.py", "--server.port", "8501"]

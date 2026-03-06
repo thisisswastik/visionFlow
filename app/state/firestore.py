@@ -70,7 +70,34 @@ class FireStoreClient:
             "end_time": time.time()
         })
 
-        
+    def get_sessions(self, limit=50):
+        try:
+            docs = self.db.collection("sessions").order_by(
+                "start_time", direction=firestore.Query.DESCENDING
+            ).limit(limit).stream()
+            
+            sessions = []
+            for doc in docs:
+                data = doc.to_dict()
+                data["id"] = doc.id
+                sessions.append(data)
+            return sessions
+        except Exception as e:
+            print(f"Error fetching sessions: {e}")
+            return []
 
-
-    
+    def get_session_steps(self, session_id: str):
+        try:
+            docs = self.db.collection("sessions").document(session_id).collection("steps").order_by(
+                "step_number", direction=firestore.Query.ASCENDING
+            ).stream()
+            
+            steps = []
+            for doc in docs:
+                data = doc.to_dict()
+                data["id"] = doc.id
+                steps.append(data)
+            return steps
+        except Exception as e:
+            print(f"Error fetching steps for session {session_id}: {e}")
+            return []

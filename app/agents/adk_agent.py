@@ -34,7 +34,8 @@ Rules for tools:
 - Use click_button to click visible buttons.
 - Use type_text to fill inputs.
 - Use scroll_page if needed.
-- If you see 'Login Successful', call finish.
+- Only call finish when you have visually verified the final results on the screen.
+- NEVER call finish in the same step as click_button or type_text. Wait for the next screen screenshot to observe the effects of your action before deciding if the goal is complete.
 """,
             tools=[click_button, type_text, scroll_page, finish],
         )
@@ -94,9 +95,16 @@ Rules for tools:
 
             if finished:
                 print("✅ Goal completed.")
+                if not self.browser.browser.contexts[0].pages[0].is_closed(): # Just check if browser is still active
+                    print("Waiting for 15 seconds to let you view the results...")
+                    import time
+                    time.sleep(15)
                 self.browser.close()
                 return
 
+        print("Waiting for 15 seconds to let you view the final state...")
+        import time
+        time.sleep(15)
         self.browser.close()
 
     def _process_events(self, events, user_id, session_id):

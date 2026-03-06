@@ -70,7 +70,9 @@ class BrowserExecutor:
             self.page.locator(f"input[name='{text}']"),
             self.page.locator(f"textarea[name='{text}']"),
             self.page.locator(f"[aria-label='{text}']"),
-            self.page.locator(f"[aria-label*='{text}' i]") # case insensitive contains
+            self.page.locator(f"[aria-label*='{text}' i]"), # case insensitive contains
+            self.page.locator(f"text={text}"), # Playwright's fuzzy substring match
+            self.page.locator(f"//*[contains(text(), '{text}')]") # xpath partial text match
         ]
 
         # 1. Return the first one that is attached AND visible
@@ -137,10 +139,11 @@ class BrowserExecutor:
         """ Keep compatibility with the current action schema """
         def _click(element):
             try:
+                # Use Playwright's native click with force=True to bypass overlapping elements
                 element.click(timeout=3000, force=True)
             except Exception:
-                # Absolute fallback: JS click
                 try:
+                    # If standard click fails due to visibility/interception, force javascript click
                     element.evaluate("el => el.click()")
                 except Exception as e:
                     raise e
@@ -179,6 +182,13 @@ class BrowserExecutor:
                     element.evaluate("el => el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }))")
         
         self._interact_with_retry(_type, placeholder)
+
+    def extract_content(self) -> str:
+        """ Returns the raw inner text of the page body for data harvesting. """
+        try:
+            return self.page.evaluate("document.body.innerText")
+        except Exception as e:
+            return f"Error extracting content: {str(e)}"
 
     def scroll(self, amount: int = 500):
         self.page.mouse.wheel(0, amount)

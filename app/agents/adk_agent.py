@@ -8,6 +8,7 @@ from app.agents.tools import (
     finish,
     type_text,
     scroll_page,
+    extract_page_content
 )
 
 
@@ -34,10 +35,12 @@ STATE & NAVIGATION RULES:
 - If you perform an action (like click_button) and the NEXT screenshot looks completely identical, DO NOT click the same button again. The action failed or the element is not functional.
 - If you are stuck or need to see more content (like products below the fold), use `scroll_page`. This is highly critical on ecommerce websites.
 - If you are trying to click the "Search" button but the page isn't navigating, try typing and hitting enter, or try clicking a different element. Do NOT endlessly loop clicking "Search".
+- VERY IMPORTANT: NEVER call two `click_button` tools in the same step if the second click depends on the first one (for example, clicking a Sort button to open a dropdown, and then clicking the Low to High option in the dropdown). Playwright will immediately fail because the dropdown hasn't rendered yet. Execute the FIRST click, await the new screenshot, THEN execute the second click.
 - Only call finish when you have visually verified the final results on the screen.
 - NEVER call finish in the same step as click_button or type_text. Wait for the next screen screenshot to observe the effects of your action.
+- Use `extract_page_content` ONLY if you need to fetch the raw textual DOM dump of the current screen to read massive amounts of pricing or text data that is hard to see.
 """,
-            tools=[click_button, type_text, scroll_page, finish],
+            tools=[click_button, type_text, scroll_page, extract_page_content, finish],
         )
 
         # Proper runner setup
@@ -141,6 +144,11 @@ STATE & NAVIGATION RULES:
                 elif tool_name == "scroll_page":
                     self.browser.scroll()
                     result = "Scrolled page"
+
+                elif tool_name == "extract_page_content":
+                    content = self.browser.extract_content()
+                    result = f"Page content extracted: {content[:1500]}..." # Truncate to avoid context window explosion
+                    print(f"Extracted content length: {len(content)}")
 
                 elif tool_name == "finish":
                     return True

@@ -20,3 +20,8 @@ def finish() -> str:
     """Call this when the task is successfully completed."""
     return "Task completed"
 
+@FunctionTool
+def extract_page_content() -> str:
+    """Extract all the visible text content from the current page."""
+    return "Page content extracted"
+

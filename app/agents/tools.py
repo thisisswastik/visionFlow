@@ -25,3 +25,8 @@ def extract_page_content() -> str:
     """Extract all the visible text content from the current page."""
     return "Page content extracted"
 
+@FunctionTool
+def ask_customer_for_input(question: str) -> str:
+    """Use this tool when you encounter a login screen, 2FA prompt, or need explicit information from the user (like a password). The execution will pause until the user responds."""
+    return "User response pending"
+

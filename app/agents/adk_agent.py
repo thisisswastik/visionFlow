@@ -3,12 +3,14 @@ from google.adk.runners import InMemoryRunner
 from google.genai import types
 
 from app.executor.browser import BrowserExecutor
+from app.state.intervention import store
 from app.agents.tools import (
     click_button,
     finish,
     type_text,
     scroll_page,
-    extract_page_content
+    extract_page_content,
+    ask_customer_for_input
 )
 
 
@@ -39,8 +41,9 @@ STATE & NAVIGATION RULES:
 - Only call finish when you have visually verified the final results on the screen.
 - NEVER call finish in the same step as click_button or type_text. Wait for the next screen screenshot to observe the effects of your action.
 - Use `extract_page_content` ONLY if you need to fetch the raw textual DOM dump of the current screen to read massive amounts of pricing or text data that is hard to see.
+- If you hit a Login screen or a prompt for a password / 2FA code, and you do not know the credentials, IMMEDIATELY call `ask_customer_for_input`. Wait for the user to provide the credentials. DO NOT guess credentials.
 """,
-            tools=[click_button, type_text, scroll_page, extract_page_content, finish],
+            tools=[click_button, type_text, scroll_page, extract_page_content, ask_customer_for_input, finish],
         )
 
         # Proper runner setup
@@ -144,6 +147,30 @@ STATE & NAVIGATION RULES:
                 elif tool_name == "scroll_page":
                     self.browser.scroll()
                     result = "Scrolled page"
+
+                elif tool_name == "ask_customer_for_input":
+                    question = tool_args.get("question", "Input required:")
+                    print(f"Pausing autonomous loop for user input: {question}")
+                    
+                    # Register intervention request
+                    import threading
+                    store.requests[session_id] = question
+                    event = threading.Event()
+                    store.events[session_id] = event
+                    
+                    # Pause the thread natively until Streamlit UI triggers it
+                    event.wait()
+                    
+                    # Woke up! Retrieve answer and clear store
+                    answer = store.responses.get(session_id, "")
+                    if session_id in store.requests:
+                        del store.requests[session_id]
+                    if session_id in store.events:
+                        del store.events[session_id]
+                    if session_id in store.responses:
+                        del store.responses[session_id]
+                        
+                    result = f"User responded: {answer}"
 
                 elif tool_name == "extract_page_content":
                     content = self.browser.extract_content()

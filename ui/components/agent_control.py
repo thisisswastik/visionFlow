@@ -9,6 +9,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from app.agents.adk_agent import VisionADKAgent
 from app.state.firestore import FireStoreClient
+from app.state.intervention import store
 
 load_dotenv()
 
@@ -96,6 +97,21 @@ def render():
             if not steps:
                 st.info("Agent is initializing... Waiting for first step.")
             else:
+                # Check for active interventions first!
+                if session_id in store.requests:
+                    question = store.requests[session_id]
+                    st.warning(f"⚠️ **AGENT REQUIRES INPUT:** {question}")
+                    
+                    with st.form(key=f"intervention_form_{session_id}"):
+                        user_answer = st.text_input("Your Response:")
+                        submit_answer = st.form_submit_button("Provide to Agent")
+                        
+                        if submit_answer and user_answer:
+                            store.responses[session_id] = user_answer
+                            if session_id in store.events:
+                                store.events[session_id].set() # Wake up parent thread!
+                            st.rerun()
+
                 for step in steps:
                     st.markdown("<div class='step-card'>", unsafe_allow_html=True)
                     st.markdown(f"**Step {step.get('step_number', '?')}** - Action: `{step.get('action', 'Unknown')}`")

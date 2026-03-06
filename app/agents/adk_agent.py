@@ -3,7 +3,7 @@ from google.adk.runners import InMemoryRunner
 from google.genai import types
 
 from app.executor.browser import BrowserExecutor
-from app.state.intervention import store
+from app.state.firestore import FireStoreClient
 from app.agents.tools import (
     click_button,
     finish,
@@ -30,6 +30,7 @@ You are a strict UI automation agent.
 CRITICAL RULES FOR TARGETING:
 - You MUST only use the EXACT text or placeholder text visibly written on the CURRENT screenshot.
 - DO NOT hallucinate, guess, or assume element names based on common UI patterns. For example, if a search bar says "Search Amazon.in", your target MUST be exactly "Search Amazon.in", not "Search" or "Search for products...".
+- **EMPTY INPUT BOXES**: When using the `type_text` tool, your `target` argument MUST be the visible label or placeholder text INSIDE the empty box (e.g. "Email or phone"). NEVER set the `target` argument to the text you *want* to type (e.g. do not set target to "thisisswastik@gmail.com").
 - Look closely at the provided image BEFORE deciding on the target text.
 - Your target string MUST perfectly match the pixel-visible text shown on the screenshot.
 
@@ -55,11 +56,10 @@ STATE & NAVIGATION RULES:
         # Enable automatic session creation
         self.runner.auto_create_session = True
 
-    def run(self, url: str, goal: str):
+    def run(self, url: str, goal: str, session_id: str):
         self.browser.open(url)
 
         user_id = "user_1"
-        session_id = "vision_session"
 
         # Initial goal message
         events = self.runner.run(
@@ -152,23 +152,29 @@ STATE & NAVIGATION RULES:
                     question = tool_args.get("question", "Input required:")
                     print(f"Pausing autonomous loop for user input: {question}")
                     
-                    # Register intervention request
-                    import threading
-                    store.requests[session_id] = question
-                    event = threading.Event()
-                    store.events[session_id] = event
+                    fs = FireStoreClient()
                     
-                    # Pause the thread natively until Streamlit UI triggers it
-                    event.wait()
+                    # Create the intervention document
+                    import datetime
+                    intervention_ref = fs.db.collection('interventions').document(session_id)
+                    intervention_ref.set({
+                        "session_id": session_id,
+                        "question": question,
+                        "response": None,
+                        "status": "pending",
+                        "created_at": datetime.datetime.now(datetime.timezone.utc)
+                    })
                     
-                    # Woke up! Retrieve answer and clear store
-                    answer = store.responses.get(session_id, "")
-                    if session_id in store.requests:
-                        del store.requests[session_id]
-                    if session_id in store.events:
-                        del store.events[session_id]
-                    if session_id in store.responses:
-                        del store.responses[session_id]
+                    # Sleep-poll until Streamlit UI writes the response into Firestore
+                    import time
+                    while True:
+                        doc = intervention_ref.get()
+                        if doc.exists:
+                            data = doc.to_dict()
+                            if data.get("status") == "resolved" and data.get("response"):
+                                answer = data.get("response")
+                                break
+                        time.sleep(2) # Poll every 2 seconds
                         
                     result = f"User responded: {answer}"
 

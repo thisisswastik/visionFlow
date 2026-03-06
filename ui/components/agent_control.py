@@ -9,14 +9,13 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from app.agents.adk_agent import VisionADKAgent
 from app.state.firestore import FireStoreClient
-from app.state.intervention import store
 
 load_dotenv()
 
 # Global to hold the background thread purely to prevent GC
 _agent_thread = None
 
-def run_agent_in_background(url: str, goal: str, headless: bool):
+def run_agent_in_background(url: str, goal: str, headless: bool, session_id: str):
     import asyncio
     import sys
     
@@ -33,7 +32,7 @@ def run_agent_in_background(url: str, goal: str, headless: bool):
             api_key=os.getenv("GEMINI_API_KEY"),
             headless=headless
         )
-        agent.run(url=url, goal=goal)
+        agent.run(url=url, goal=goal, session_id=session_id)
     except Exception as e:
         print(f"Agent crashed: {e}")
 
@@ -59,24 +58,14 @@ def render():
         st.session_state.current_live_session = None
 
     if run_btn and url and goal:
-        # Give firestore a second to register the session create via the agent thread
-        st.session_state.current_live_session = "loading"
+        import uuid
+        new_session_id = str(uuid.uuid4())
+        
+        st.session_state.current_live_session = new_session_id
         
         global _agent_thread
-        _agent_thread = threading.Thread(target=run_agent_in_background, args=(url, goal, not show_browser), daemon=True)
+        _agent_thread = threading.Thread(target=run_agent_in_background, args=(url, goal, not show_browser, new_session_id), daemon=True)
         _agent_thread.start()
-
-        # Wait briefly for session to be registered in Firestore
-        time.sleep(2)
-
-        # Get latest session
-        firestore = FireStoreClient()
-        latest = firestore.get_sessions(limit=1)
-        if latest:
-            st.session_state.current_live_session = latest[0]["id"]
-        else:
-            st.error("Failed to initialize session in Firestore.")
-            st.session_state.current_live_session = None
 
     # Live Viewer
     if st.session_state.current_live_session and st.session_state.current_live_session != "loading":
@@ -92,26 +81,35 @@ def render():
         # We use a simple while loop with st.rerun() or direct renders
         # to fake a live socket.
         with live_container.container():
+            # 1. ALWAYS Check for active interventions first!
+            try: 
+                intervention_doc = firestore.db.collection('interventions').document(session_id).get()
+                if intervention_doc.exists:
+                    data = intervention_doc.to_dict()
+                    if data.get("status") == "pending":
+                        question = data.get("question", "Input Required:")
+                        st.warning(f"⚠️ **AGENT REQUIRES INPUT:** {question}")
+                        
+                        with st.form(key=f"intervention_form_{session_id}"):
+                            user_answer = st.text_input("Your Response:")
+                            submit_answer = st.form_submit_button("Provide to Agent")
+                            
+                            if submit_answer and user_answer:
+                                # Write back to Firestore
+                                firestore.db.collection('interventions').document(session_id).update({
+                                    "response": user_answer,
+                                    "status": "resolved"
+                                })
+                                st.rerun()
+            except Exception as e:
+                pass # Ignore if collection doesn't exist yet
+
+            # 2. Render steps if they exist
             steps = firestore.get_session_steps(session_id)
             
             if not steps:
                 st.info("Agent is initializing... Waiting for first step.")
             else:
-                # Check for active interventions first!
-                if session_id in store.requests:
-                    question = store.requests[session_id]
-                    st.warning(f"⚠️ **AGENT REQUIRES INPUT:** {question}")
-                    
-                    with st.form(key=f"intervention_form_{session_id}"):
-                        user_answer = st.text_input("Your Response:")
-                        submit_answer = st.form_submit_button("Provide to Agent")
-                        
-                        if submit_answer and user_answer:
-                            store.responses[session_id] = user_answer
-                            if session_id in store.events:
-                                store.events[session_id].set() # Wake up parent thread!
-                            st.rerun()
-
                 for step in steps:
                     st.markdown("<div class='step-card'>", unsafe_allow_html=True)
                     st.markdown(f"**Step {step.get('step_number', '?')}** - Action: `{step.get('action', 'Unknown')}`")

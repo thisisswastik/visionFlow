@@ -50,7 +50,7 @@ By combining visual understanding with programmatic browser control, VisionFlow 
 The system features a complete Streamlit dashboard to control and monitor the agent. Run the dashboard using:
 
 ```bash
-streamlit run ui/app.py
+streamlit run ui/dashboard.py
 ```
 
 This will launch a local web server (typically on `http://localhost:8501`) where you can:

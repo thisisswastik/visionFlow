@@ -22,4 +22,4 @@ RUN playwright install chromium
 COPY . .
 
 # Set default command (can be overridden)
-CMD ["streamlit", "run", "ui/app.py", "--server.port", "8501"]
+CMD ["streamlit", "run", "ui/dashboard.py", "--server.port", "8501"]
